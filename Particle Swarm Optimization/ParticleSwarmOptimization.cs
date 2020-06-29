@@ -9,19 +9,26 @@ namespace Particle_Swarm_Optimization
     public class ParticleSwarmOptimization
     {
         private IProblem problem;
+        private PSOParameters parameters;
+
+        private Random random = new Random();
         private int iterationsCount = 0;
 
-        private float pBest = default(float); // Best global particle position
+        private Vector pBest = default(Vector); // Best global particle position
 
-        private List<float> vi; // Velocity vector for each particle
-        private List<float> pi; // The current position for every particle
-        private List<float> piBest; // The best local solution for every particle
+        private List<Vector> vi; // Velocity vector for each particle
+        private List<Vector> pi; // The current position for every particle
+        private List<Vector> piBest; // The best local solution for every particle
+
+        private double pBestCost; // Best global particle position cost
+        private List<double> piBestCost; //The best local solution for every particle cost
 
         private bool finishStatus = false; // Finish particle swarm optimization algorithm flag
 
-        public ParticleSwarmOptimization(IProblem problem)
+        public ParticleSwarmOptimization(IProblem problem, PSOParameters parameters)
         {
             this.problem = problem;
+            this.parameters = parameters;
             iterationsCount = 0;
         }
 
@@ -51,48 +58,60 @@ namespace Particle_Swarm_Optimization
         public void Reset()
         {
             iterationsCount = 0;
-            pBest = default(float);
+            pBest = default(Vector);
             finishStatus = false;
         }
 
         private void PrepareParticleSwarm()
         {
-            vi = new List<float>(problem.ParticleCount);
-            pi = new List<float>(problem.ParticleCount);
-            piBest = new List<float>(problem.ParticleCount);
+            vi = new List<Vector>(parameters.ParticleCount);
+            pi = new List<Vector>(parameters.ParticleCount);
+            piBest = new List<Vector>(parameters.ParticleCount);
+            piBestCost = new List<double>(parameters.ParticleCount);
+            pBestCost = double.MaxValue;
 
-            // Inicjalizacja cząstek
-            for (int i = 0; i < problem.ParticleCount; i++)
+            // Particle initialization
+            for (int i = 0; i < parameters.ParticleCount; i++)
             {
                 vi.Add(problem.GetRandomVector());
                 pi.Add(problem.GetRandomPosition());
                 piBest.Add(pi[i]);
 
-                if (pBest.Equals(default(float)) || problem.CostFunction(piBest[i]) < problem.CostFunction(pBest))
+                if (i == 0)
+                    pBest = new Vector(vi[i].Size);
+
+                piBestCost.Add(problem.CostFunction(piBest[i]));
+
+                if (pBest.Equals(default(float)) || piBestCost[i] < pBestCost)
                 {
                     pBest = piBest[i];
+                    pBestCost = piBestCost[i];
                 }
             }
         }
 
         private void ParticleSwarmMove()
         {
-            for (int i = 0; i < problem.ParticleCount; i++)
+            for (int i = 0; i < parameters.ParticleCount; i++)
             {
-                var c1 = problem.C1;
-                var c2 = problem.C2;
-                var r1 = problem.RandomValue();
-                var r2 = problem.RandomValue();
+                var c1 = parameters.C1;
+                var c2 = parameters.C2;
+                var r1 = (float)random.NextDouble();
+                var r2 = (float)random.NextDouble();
 
                 vi[i] = vi[i] + c1 * r1 * (piBest[i] - pi[i]) + c2 * r2 * (pBest - pi[i]);
                 pi[i] = pi[i] + vi[i];
 
-                if (problem.CostFunction(pi[i]) <= problem.CostFunction(piBest[i]))
+                double piCost = problem.CostFunction(pi[i]);
+
+                if (piCost <= piBestCost[i])
                 {
                     piBest[i] = pi[i];
-                    if (problem.CostFunction(pi[i]) <= problem.CostFunction(pBest))
+                    piBestCost[i] = piCost;
+                    if (piCost <= pBestCost)
                     {
                         pBest = pi[i];
+                        pBestCost = piCost;
                     }
                 }
             }
@@ -101,12 +120,12 @@ namespace Particle_Swarm_Optimization
 
         private bool CheckStop()
         {
-            if (problem.MaxIteration > 0 && problem.MaxIteration == iterationsCount)
+            if (parameters.MaxIteration > 0 && parameters.MaxIteration == iterationsCount)
             {
                 finishStatus = true;
                 return false;
             }
-            else if (problem.CostFunction(pBest) <= problem.MinCostDifference)
+            else if (problem.CostFunction(pBest) <= parameters.MinCostDifference)
             {
                 finishStatus = true;
                 return false;
@@ -115,17 +134,17 @@ namespace Particle_Swarm_Optimization
                 return true;
         }
 
-        public float GetBestParticlePosition()
+        public Vector GetBestParticlePosition()
         {
             return pBest;
         }
 
-        public List<float> GetParticlePositions()
+        public List<Vector> GetParticlePositions()
         {
             return pi;
         }
 
-        public float GetIterationsCount()
+        public int GetIterationsCount()
         {
             return iterationsCount;
         }

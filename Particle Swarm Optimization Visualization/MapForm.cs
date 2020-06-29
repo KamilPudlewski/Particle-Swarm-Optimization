@@ -19,86 +19,47 @@ namespace Particle_Swarm_Optimization_Visualization
     public partial class MapForm : Form
     {
         private TreasureMap map;
-
-        private int cellSize = 50;
-        private Rectangle[,] grid;
-
         private ParticleSwarmOptimization pso;
 
-        private int minSizeX = 1;
-        private int minSizeY = 10;
+        private int particleSize = 10;
+        private int rectangleSize = 20;
+
+        private bool newStartPoint = true;
 
         public MapForm()
         {
             InitializeComponent();
             PreparePSO();
-
-            // Connect the Paint event of the PictureBox to the event handler method.
-            mapPictureBox.Paint += new System.Windows.Forms.PaintEventHandler(this.CreateMapGrid);
         }
 
         private void PreparePSO()
         {
-            int row = Int32.Parse(rowTextBox.Text);
-            int column = Int32.Parse(columnTextBox.Text);
+            Vector winnerPosition = RandomWinnerPosition();
+            map = new TreasureMap(mapPictureBox.Width, mapPictureBox.Height, winnerPosition);
+        }
 
-            // Random winner position
+        private Vector RandomWinnerPosition()
+        {
             Random random = new Random();
-            int winnerPosition = random.Next(0, (row* column) - 1);
-
-            map = new TreasureMap(row, column, winnerPosition);
-            grid = new Rectangle[map.sizeX, map.sizeY];
+            Vector winnerPosition = new Vector(2);
+            winnerPosition.Item[0] = random.Next(0, mapPictureBox.Width);
+            winnerPosition.Item[1] = random.Next(0, mapPictureBox.Height);
+            return winnerPosition;
         }
 
-        private void CreateMapGrid(object sender, System.Windows.Forms.PaintEventArgs e)
+        private void mapPictureBox_MouseClick(object sender, MouseEventArgs e)
         {
-            ChangeWindowSize();
-
-            int height = 0;
-
-            for (int i = 0; i < map.sizeX; i++)
-            {
-                int width = 0;
-                for (int j = 0; j < map.sizeY; j++)
-                {
-                    Rectangle cellRectangle = new Rectangle(width, height, cellSize, cellSize);
-                    grid[i, j] = cellRectangle;
-                    e.Graphics.DrawRectangle(Pens.Black, cellRectangle);
-                    width += cellSize;
-                }
-                height += cellSize;
-            }
-        }
-
-        private void ChangeWindowSize()
-        {
-            int widthWindow = 20 + ((cellSize + 1) * map.sizeY) + 20;
-            int heightWindow = 160 + ((cellSize + 1) * map.sizeX) + 20;
-
-            this.Size = new System.Drawing.Size(widthWindow, heightWindow);
-            mapPictureBox.Size = new System.Drawing.Size(widthWindow, heightWindow);
-        }
-
-        private void labyrinthPictureBox_MouseClick(object sender, MouseEventArgs e)
-        {
-            ResetPictureBox();
-
             int mouseX = e.X;
             int mouseY = e.Y;
 
-            for (int i = 0; i < map.sizeX; i++)
-            {
-                for (int j = 0; j < map.sizeY; j++)
-                {
-                    if (grid[i, j].X < mouseX && grid[i, j].Y < mouseY && (grid[i, j].X + grid[i, j].Width) > mouseX && (grid[i, j].Y + grid[i, j].Height) > mouseY)
-                    {
-                        map.SetWinnerPosition((i * map.sizeY) + j);
-                        mapPictureBox.CreateGraphics().FillRectangle(Brushes.Lime, grid[i, j]);
-                    }
-                }
-            }
+            Vector winnerPosition = new Vector(2);
+            winnerPosition.Item[0] = mouseX;
+            winnerPosition.Item[1] = mouseY;
+            map.SetWinnerPosition(winnerPosition);
+            newStartPoint = true;
+            Invalidate();
         }
-
+        
         private void particleTextBox_KeyPress(object sender, EventArgs e)
         {
             if (System.Text.RegularExpressions.Regex.IsMatch(particleTextBox.Text, "[^0-9,.]"))
@@ -108,30 +69,6 @@ namespace Particle_Swarm_Optimization_Visualization
                     particleTextBox.Text = "1";
                 else
                     particleTextBox.Text = particleTextBox.Text.Remove(particleTextBox.Text.Length - 1);
-            }
-        }
-
-        private void rowTextBox_KeyPress(object sender, EventArgs e)
-        {
-            if (System.Text.RegularExpressions.Regex.IsMatch(rowTextBox.Text, "[^0-9,.]"))
-            {
-                MessageBox.Show("Please enter numbers only!", "Input value error");
-                if (rowTextBox.Text.Length == 1)
-                    rowTextBox.Text = "1";
-                else
-                    rowTextBox.Text = rowTextBox.Text.Remove(rowTextBox.Text.Length - 1);
-            }
-        }
-
-        private void columnTextBox_KeyPress(object sender, EventArgs e)
-        {
-            if (System.Text.RegularExpressions.Regex.IsMatch(columnTextBox.Text, "[^0-9,.]"))
-            {
-                MessageBox.Show("Please enter numbers only!", "Input value error");
-                if (columnTextBox.Text.Length == 1)
-                    columnTextBox.Text = "1";
-                else
-                    columnTextBox.Text = columnTextBox.Text.Remove(columnTextBox.Text.Length - 1);
             }
         }
 
@@ -159,33 +96,6 @@ namespace Particle_Swarm_Optimization_Visualization
             }
         }
 
-        private void changeMapButton_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                if (Int32.Parse(rowTextBox.Text) < minSizeX)
-                {
-                    MessageBox.Show("Row count must be at least " + minSizeX + "!", "Error row count!");
-                    rowTextBox.Text = minSizeX.ToString();
-                    return;
-                }
-
-                if (Int32.Parse(columnTextBox.Text) < minSizeY)
-                {
-                    MessageBox.Show("Column count must be at least " + minSizeY + "!", "Error row count!");
-                    columnTextBox.Text = minSizeY.ToString();
-                    return;
-                }
-            }
-            catch (Exception)
-            {
-                return;
-            }
-
-            PreparePSO();
-            ResetPictureBox();
-        }
-
         private bool ValidateParticleCount()
         {
             if (particleTextBox.Text == "")
@@ -206,113 +116,99 @@ namespace Particle_Swarm_Optimization_Visualization
 
         private void psoStartButton_Click(object sender, EventArgs e)
         {
-            StartPSO();
+            if (psoStartButton.Text == "Start PSO")
+            {
+                StartPSO();
+                psoStartButton.Text = "Stop PSO";
+            }
+            else
+            {
+                psoStartButton.Text = "Start PSO";
+            }
         }
 
         private void StartPSO()
         {
-
             if (!ValidateParticleCount())
                 return;
 
-            ResetPictureBox();
+            newStartPoint = false;
 
             int particleCount = Int32.Parse(particleTextBox.Text);
             uint maxIteration = UInt32.Parse(maxEpochTextBox.Text);
             float c1 = float.Parse(c1TextBox.Text, CultureInfo.InvariantCulture.NumberFormat);
             float c2 = float.Parse(c2TextBox.Text, CultureInfo.InvariantCulture.NumberFormat);
 
-            TreasureMapProblem problem = new TreasureMapProblem(map, particleCount);
-            problem.MaxIteration = maxIteration;
-            problem.C1 = c1;
-            problem.C2 = c2;
-            pso = new ParticleSwarmOptimization(problem);
+            TreasureMapProblem problem = new TreasureMapProblem(map);
+            PSOParameters parameters = new PSOParameters(particleCount, c1, c2, maxIteration, 2f);
 
+            pso = new ParticleSwarmOptimization(problem, parameters);
 
-            while (!pso.GetFinishStatus())
+            Thread psoThread = new Thread(delegate ()
             {
-                ResetPictureBox();
+                while (!pso.GetFinishStatus() && psoStartButton.Text == "Stop PSO")
+                {
+                    pso.NextMove();
 
-                pso.NextMove();
+                    iterationCounterLabel.Invoke((ThreadStart)delegate ()
+                    {
+                        iterationCounterLabel.Text = pso.GetIterationsCount().ToString();
+                    });
 
-                DrawWinPosition();
+                    Invalidate();
 
-                var result = pso.GetParticlePositions();
+                    Thread.Sleep(80);
+                }
+                psoStartButton.Invoke((ThreadStart)delegate (){psoStartButton.Text = "Start PSO";});
+            });
+            psoThread.Start();
+        }
 
-                // Color winner particle rectangle
-                int winnerPosition = (int)Math.Round(pso.GetBestParticlePosition());
-                if (winnerPosition < 0)
-                    winnerPosition = 0;
-                else if (winnerPosition > (map.sizeX * map.sizeY))
-                    winnerPosition = map.sizeX * map.sizeY;
-                ColorRectangle(winnerPosition, Brushes.DarkGreen);
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            // Draw win position rectangle
+            ResetPictureBox();
+            DrawWinPosition();
 
-                DrawParticle();
+            if (pso != null && !newStartPoint)
+            {
+                // Draw winner particle position rectangle
+                Vector winnerPosition = pso.GetBestParticlePosition();
+                if (winnerPosition != null)
+                    DrawColorRectangle(winnerPosition, Brushes.DarkGreen);
 
-                iterationCounterLabel.Text = pso.GetIterationsCount().ToString();
-                iterationCounterLabel.Refresh();
-
-                Thread.Sleep(500);
+                DrawParticles();
             }
         }
 
         private void DrawWinPosition()
         {
-            int winPosition = map.winnerPosition;
+            Vector winPosition = map.winnerPosition;
+            Rectangle winRectangle = new Rectangle((int)winPosition.Item[0] - (rectangleSize/2), (int)winPosition.Item[1] - (rectangleSize/2), rectangleSize, rectangleSize);
 
-            int cellX = (int)winPosition / map.sizeY;
-            int cellY = (int)winPosition % map.sizeY;
-
-            mapPictureBox.CreateGraphics().FillRectangle(Brushes.Lime, grid[cellX, cellY]);
+            mapPictureBox.CreateGraphics().FillRectangle(Brushes.Lime, winRectangle);
         }
 
-        private void ColorRectangle(int position, Brush color)
+        private void DrawColorRectangle(Vector position, Brush color)
         {
-            int cellX = position / map.sizeY;
-            int cellY = position % map.sizeY;
+            Rectangle winRectangle = new Rectangle((int)position.Item[0] - (rectangleSize/2), (int)position.Item[1] - (rectangleSize/2), rectangleSize, rectangleSize);
 
-            mapPictureBox.CreateGraphics().FillRectangle(color, grid[cellX, cellY]);
+            mapPictureBox.CreateGraphics().FillRectangle(color, winRectangle);
         }
 
-        private void DrawParticle()
+        private void DrawParticles()
         {
             var resultParticlePositions = pso.GetParticlePositions();
 
-            // Lista która ma postać [pozycja][ilosc wystapien] służąca do odpwiedniego wyświetlania cząsteczek
-            List<int> scheduleParticle = new List<int>();
-            for (int i = 0; i < map.sizeX * map.sizeY + 1; i++)
+            Brush colorBrush = Brushes.Blue;
+            int particleNumber = Int32.Parse(particleTextBox.Text);
+
+            for (int i = 0; i < resultParticlePositions.Count; i++)
             {
-                scheduleParticle.Add(0);
-            }
+                if (particleNumber < 21)
+                    colorBrush = Graphics.SetColorBrush(i);
 
-            int color = 0;
-
-            foreach (var particle in pso.GetParticlePositions())
-            {
-                int position = (int)Math.Round(particle);
-
-                if (particle < 0)
-                    position = 0;
-                else if (position >= map.sizeX * map.sizeY)
-                    position = (map.sizeX * map.sizeY) - 1;
-
-                int particleInRow = 4;
-                int heightOffset = ((scheduleParticle[position])/ particleInRow) * 10;
-                int widthOffset = ((((scheduleParticle[position]) - ((scheduleParticle[position] / particleInRow) * particleInRow))) * 10);
-
-                scheduleParticle[position] += 1;
-
-                int cellX = (int)position / map.sizeY;
-                int cellY = (int)position % map.sizeY;
-
-                Brush colorBrush = Brushes.Blue;
-                if (Int32.Parse(particleTextBox.Text) < 21)
-                {
-                    colorBrush = Graphics.SetColorBrush(color);
-                }
-
-                mapPictureBox.CreateGraphics().FillEllipse(colorBrush, grid[cellX, cellY].X + widthOffset, grid[cellX, cellY].Y + heightOffset, 10, 10);
-                color++;
+                mapPictureBox.CreateGraphics().FillEllipse(colorBrush, resultParticlePositions[i].Item[0] - (particleSize/2), resultParticlePositions[i].Item[1] - (particleSize/2), particleSize, particleSize);
             }
         }
 
